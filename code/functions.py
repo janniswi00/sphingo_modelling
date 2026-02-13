@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def plot(rows, cols, main_title, df_cols):
+def plot(rows, cols, main_title, df, df_cols):
     fig, axs = plt.subplots(rows, cols)
 
     for row in range(rows):
