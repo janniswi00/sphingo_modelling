@@ -10,3 +10,5 @@ def plot(rows, cols, main_title, df, df_cols):
 
     plt.suptitle(main_title)
     plt.tight_layout()
+
+    return fig, axs
