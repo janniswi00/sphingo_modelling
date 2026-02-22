@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from adjustText import adjust_text
 
 def plot(rows, cols, main_title, df, df_cols, bins):
     fig, axs = plt.subplots(rows, cols)
@@ -82,3 +83,43 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
             df[col] = np.log(df[col].values)
 
     return df
+
+def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level=1, title="", ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+        
+    ax.scatter(x=df[fc_col], y=df[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Not significant", color="grey")
+
+    # highlight down- or up- regulated metabolites
+    down = df[(df[fc_col] <= fc_level * -1) & (df[fcr_col] <= significance)]
+    up = df[(df[fc_col] >= fc_level) & (df[fcr_col] <= significance)]
+    ax.scatter(x=down[fc_col], y=down[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Down-regulated", color="blue")
+    ax.scatter(x=up[fc_col], y=up[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Up-regulated", color="red")
+
+
+    # add texts
+    texts=[]
+    for _,r in up.iterrows():
+        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
+
+    for _,r in down.iterrows():
+        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
+
+    adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", color='black', lw=0.5),
+                expand_points=(1.2,1.2),
+                expand_text=(1.2,1.2),
+                force_points=0.5,
+                force_text=0.5,
+                lim=100)
+
+    ax.set_title(f"{title}")
+    ax.set_xlabel("logFC")
+    ax.set_ylabel("-logFDR")
+    ax.axvline(fc_level*-1, color="grey", linestyle="--")
+    ax.axvline(fc_level, color="grey", linestyle="--")
+    ax.axhline(-np.log10(significance), color="grey", linestyle="--")
+    ax.legend(bbox_to_anchor=(0.5, -0.15), ncol=3, loc="upper center")
+
+    return fig, ax
