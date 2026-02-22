@@ -35,8 +35,17 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
             col_l = col + "_l"
             df[f"{"sum_" + col}"] = df[[col, col_l]].sum(axis=1)
 
+    ## drop not detected compounds
+    rows_to_drop = []
+
+    for i, r in df.filter(regex="sum").iterrows():
+        if np.all(r.values == 0):
+            rows_to_drop.append(i)
+
+    df = df.drop(index=rows_to_drop, axis=1)
+
     ## replace zero-values
-    if replace_zero == "half_min_glob":
+    if replace_zero == "half_min_glob": # half minimum of all values
         half_min = np.min([val for val in df.filter(regex=r"^(?!.*compound).*$").values.flatten() if val != 0]) / 2
 
         for col in df.columns:
@@ -46,16 +55,12 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
             if "sum" in col:
                 df[col] = df[col].replace(0, half_min)
 
-    if replace_zero == "half_min_loc":
-        half_min = None
+    if replace_zero == "half_min_loc": # half minimum value of both experiments and conditions per compound
+        sum_cols = df.columns.str.contains("sum")
 
-        for col in df.columns:
-            if col == "compound":
-                continue
-            
-            if "sum" in col:
-                half_min = np.min([val for val in df[col].values if val != 0]) / 2
-                df[col] = df[col].replace(0, half_min)
+        for i, row in df.filter(regex="sum").iterrows():
+            half_min = np.min([val for val in row.values if val != 0]) / 2
+            df.loc[i, sum_cols] = df.loc[i, sum_cols].replace(0, half_min)
 
     ## relative values
     if relative_values == True:
