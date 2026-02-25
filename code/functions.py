@@ -123,3 +123,7 @@ def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level
     ax.legend(bbox_to_anchor=(0.5, -0.15), ncol=3, loc="upper center")
 
     return fig, ax
+
+def format_compound_names(name):
+    name = name.replace("(", "_").replace(")", "").replace("/", "_")
+    return name
