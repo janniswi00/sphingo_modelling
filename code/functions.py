@@ -127,3 +127,24 @@ def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level
 def format_compound_names(name):
     name = name.replace("(", "_").replace(")", "").replace("/", "_")
     return name
+
+def format_dataframe(data_name, save=False):
+    df_org = pd.read_excel(f"../data/unformated/{data_name}.xlsx", sheet_name="formatted")
+    rows_unl = [i for i in range(len(df_org)) if i % 2 == 0]
+    rows_l = [i for i in range(len(df_org)) if i % 2 != 0]
+    df = df_org.drop(rows_l, axis=0)
+    df_l = df_org.drop(rows_unl, axis=0)
+
+    # add labeled values as new columns
+    cols = df_org.columns[1:]
+    for col in cols:
+        df[f"{col}_l"] = df_l[col].values
+
+    # format compound names
+    df["compound"] = df["compound"].apply(format_compound_names)
+
+    # save
+    if save == True:
+        df.to_csv(f"../data/formated/{data_name}.csv", index=False)
+
+    return df
