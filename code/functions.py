@@ -125,6 +125,7 @@ def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level
     return fig, ax
 
 def format_compound_names(name):
+    name = str(name)
     name = name.replace("(", "_").replace(")", "").replace("/", "_")
     return name
 
@@ -140,7 +141,7 @@ def format_dataframe(data_name, save=False):
     for col in cols:
         df[f"{col}_l"] = df_l[col].values
 
-    # format compound names
+    # format compound name
     df["compound"] = df["compound"].apply(format_compound_names)
 
     # save
