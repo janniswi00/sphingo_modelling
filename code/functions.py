@@ -29,12 +29,16 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
     Returns:
         pd.DataFrame: preprocessed DataFrame
     """
+    ## change type of all columns to numeric
+    for col in df.columns[1:]:
+        df[col] = df[col].astype("float32")
 
     ## add unlabeled and labeled values
     if add_unlabeled_labeled == True:
         for col in [c for c in df.columns[1:] if "_l" not in c]:
             col_l = col + "_l"
             df[f"{"sum_" + col}"] = df[[col, col_l]].sum(axis=1)
+
 
     ## drop not detected compounds
     rows_to_drop = []
@@ -62,6 +66,8 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
         for i, row in df.filter(regex="sum").iterrows():
             half_min = np.min([val for val in row.values if val != 0]) / 2
             df.loc[i, sum_cols] = df.loc[i, sum_cols].replace(0, half_min)
+    
+    return df
 
     ## relative values
     if relative_values == True:
