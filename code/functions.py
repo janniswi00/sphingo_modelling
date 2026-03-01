@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from adjustText import adjust_text
+from scipy.stats import ttest_ind
+from statsmodels.stats.multitest import multipletests
 
 def plot(rows, cols, main_title, df, df_cols, bins):
     fig, axs = plt.subplots(rows, cols)
@@ -151,5 +153,42 @@ def format_dataframe(data_name, save=False):
     # save
     if save == True:
         df.to_csv(f"../data/formated/{data_name}.csv", index=False)
+
+    return df
+
+def ttest_for_df(df, cols1, cols2, label):
+    vals1 = df[cols1]
+    vals2 = df[cols2]
+
+    t_stat, p_val = ttest_ind(vals1, vals2, axis=1, equal_var=False)
+
+    vars1 = vals1.var(axis=1).values
+    vars2 = vals2.var(axis=1).values
+
+    # invalid tests
+    invalid = (
+        (vars1 == 0) |
+        (vars2 == 0) |
+        np.isinf(t_stat) |
+        np.isnan(t_stat)
+    )
+
+    # set invalid tests to NaN
+    t_stat[invalid] = np.nan
+    p_val[invalid] = np.nan
+
+    # BH correction ONLY on valid p-values
+    p_val_adj = np.full_like(p_val, np.nan)
+    valid_mask = ~np.isnan(p_val)
+
+    if valid_mask.sum() > 0:
+        p_val_adj[valid_mask] = multipletests(
+            p_val[valid_mask],
+            method="fdr_bh"
+        )[1]
+
+    df[f"t_stat_{label}"] = t_stat
+    df[f"p_val_{label}"] = p_val
+    df[f"p_val_adj_{label}"] = p_val_adj
 
     return df
