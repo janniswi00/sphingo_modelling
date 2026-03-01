@@ -51,7 +51,7 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
 
     ## replace zero-values
     if replace_zero == "half_min_glob": # half minimum of all values
-        half_min = np.min([val for val in df.filter(regex=r"^(?!.*compound).*$").values.flatten() if val != 0]) / 2
+        half_min = np.min([val for val in df.filter(regex=r"sum").values.flatten() if val != 0]) / 2
 
         for col in df.columns:
             if col == "compound":
@@ -66,8 +66,6 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
         for i, row in df.filter(regex="sum").iterrows():
             half_min = np.min([val for val in row.values if val != 0]) / 2
             df.loc[i, sum_cols] = df.loc[i, sum_cols].replace(0, half_min)
-    
-    return df
 
     ## relative values
     if relative_values == True:
