@@ -249,3 +249,21 @@ def batch_correction(df):
     )[1]
 
     return results_df
+
+def categorize_compounds(df, sign_lvl_cond=0.05, sign_lvl_batch=0.05, effect_size=0.5):
+    categories = []
+
+    for _, r in df.iterrows():
+        if r["p_val_adj_condition"] < sign_lvl_cond and abs(r["EffectSize_condition"]) > effect_size:
+            if r["p_val_batch"] < sign_lvl_batch:
+                categories.append("both")
+            else:
+                categories.append("condition")
+        
+        elif r["p_val_batch"] < sign_lvl_batch:
+            categories.append("batch")
+        
+        else:
+            categories.append("neutral")
+    
+    return categories
