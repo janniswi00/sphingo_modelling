@@ -4,6 +4,7 @@ import pandas as pd
 from adjustText import adjust_text
 from scipy.stats import ttest_ind
 from statsmodels.stats.multitest import multipletests
+import statsmodels.formula.api as smf
 
 def plot(rows, cols, main_title, df, df_cols, bins):
     fig, axs = plt.subplots(rows, cols)
@@ -192,3 +193,59 @@ def ttest_for_df(df, cols1, cols2, label):
     df[f"p_val_adj_{label}"] = p_val_adj
 
     return df
+
+
+def batch_correction(df):
+    df_t = df.filter(regex="sum").T
+    df_t.columns = df["compound"].values
+
+    samples = df.filter(regex="sum").columns
+    results = []
+
+    for metabolite in df_t.columns:
+        
+        df_model = pd.DataFrame({
+            "sample": samples,
+            "y": df_t[metabolite].values
+        })
+        
+        df_model["batch"] = df_model["sample"].str.extract(r"(exp\d+)")
+        df_model["condition"] = df_model["sample"].str.extract(r"_(\d+deg)")
+        
+        model = smf.ols("y ~ C(condition) + C(batch)", data=df_model).fit()
+        
+        # Extract condition effect
+        condition_param = [p for p in model.params.index if "C(condition)" in p]
+        
+        if len(condition_param) > 0:
+            coef = model.params[condition_param[0]]
+            pval = model.pvalues[condition_param[0]]
+        else:
+            coef = np.nan
+            pval = np.nan
+        
+        # Extract batch effect
+        batch_param = [p for p in model.params.index if "C(batch)" in p]
+        
+        if len(batch_param) > 0:
+            batch_pval = model.pvalues[batch_param[0]]
+        else:
+            batch_pval = np.nan
+        
+        results.append({
+            "compound": metabolite,
+            "EffectSize_condition": coef,
+            "p_val_condition": pval,
+            "p_val_batch": batch_pval,
+            "R2": model.rsquared
+        })
+
+    results_df = pd.DataFrame(results)
+
+    # FDR-correction
+    results_df["p_val_adj_condition"] = multipletests(
+        results_df["p_val_condition"],
+        method="fdr_bh"
+    )[1]
+
+    return results_df
