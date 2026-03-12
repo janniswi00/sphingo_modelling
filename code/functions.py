@@ -321,6 +321,10 @@ def extract_fatty_hydroxylation(compound_name):
     else:
         return False
 
-def extract_double_bounds(compound_name):
+def extract_dbs_fatty(compound_name):
     dbs = compound_name.split("_")[-1].split(":")[-1]
+    return int(dbs)
+
+def extract_dbs_sphingo(compound_name):
+    dbs = compound_name.split("_")[1].split(":")[-1]
     return int(dbs)
