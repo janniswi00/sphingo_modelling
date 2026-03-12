@@ -5,7 +5,9 @@ from adjustText import adjust_text
 from scipy.stats import ttest_ind
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
+import re
 
+## Visualization functions
 def plot(rows, cols, main_title, df, df_cols, bins):
     fig, axs = plt.subplots(rows, cols)
 
@@ -19,6 +21,74 @@ def plot(rows, cols, main_title, df, df_cols, bins):
 
     return fig, axs
 
+def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level=1, title="", ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+        
+    ax.scatter(x=df[fc_col], y=df[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Not significant", color="grey")
+
+    # highlight down- or up- regulated metabolites
+    down = df[(df[fc_col] <= fc_level * -1) & (df[fcr_col] <= significance)]
+    up = df[(df[fc_col] >= fc_level) & (df[fcr_col] <= significance)]
+    ax.scatter(x=down[fc_col], y=down[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Down-regulated", color="blue")
+    ax.scatter(x=up[fc_col], y=up[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Up-regulated", color="red")
+
+
+    # add texts
+    texts=[]
+    for _,r in up.iterrows():
+        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
+
+    for _,r in down.iterrows():
+        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
+
+    adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", color='black', lw=0.5),
+                expand_points=(1.2,1.2),
+                expand_text=(1.2,1.2),
+                force_points=0.5,
+                force_text=0.5,
+                lim=100)
+
+    ax.set_title(f"{title}")
+    ax.set_xlabel("logFC")
+    ax.set_ylabel("-logFDR")
+    ax.axvline(fc_level*-1, color="grey", linestyle="--")
+    ax.axvline(fc_level, color="grey", linestyle="--")
+    ax.axhline(-np.log10(significance), color="grey", linestyle="--")
+    ax.legend(bbox_to_anchor=(0.5, -0.15), ncol=3, loc="upper center")
+
+    return fig, ax
+
+## Formatting functions
+def format_compound_names(name):
+    name = str(name)
+    name = name.replace("(", "_").replace(")", "").replace("/", "_")
+    return name
+
+def format_dataframe(data_name, save=False):
+    df_org = pd.read_excel(f"../data/unformated/{data_name}.xlsx", sheet_name="formatted")
+    rows_unl = [i for i in range(len(df_org)) if i % 2 == 0]
+    rows_l = [i for i in range(len(df_org)) if i % 2 != 0]
+    df = df_org.drop(rows_l, axis=0)
+    df_l = df_org.drop(rows_unl, axis=0)
+
+    # add labeled values as new columns
+    cols = df_org.columns[1:]
+    for col in cols:
+        df[f"{col}_l"] = df_l[col].values
+
+    # format compound name
+    df["compound"] = df["compound"].apply(format_compound_names)
+
+    # save
+    if save == True:
+        df.to_csv(f"../data/formated/{data_name}.csv", index=False)
+
+    return df
+
+## Preprocessing functions
 def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero:str="half_min_glob", relative_values:bool=True, log_transformation:bool=True) -> pd.DataFrame:
     """Application of different preprocessing steps to metabolomics pd.DataFrame
 
@@ -91,72 +161,6 @@ def preprocessing(df:pd.DataFrame, add_unlabeled_labeled:bool=True, replace_zero
 
     return df
 
-def plot_volcano(df, compounds_col, fcr_col, fc_col, significance=0.05, fc_level=1, title="", ax=None):
-    if ax is None:
-        fig, ax = plt.subplots()
-    else:
-        fig = ax.figure
-        
-    ax.scatter(x=df[fc_col], y=df[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Not significant", color="grey")
-
-    # highlight down- or up- regulated metabolites
-    down = df[(df[fc_col] <= fc_level * -1) & (df[fcr_col] <= significance)]
-    up = df[(df[fc_col] >= fc_level) & (df[fcr_col] <= significance)]
-    ax.scatter(x=down[fc_col], y=down[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Down-regulated", color="blue")
-    ax.scatter(x=up[fc_col], y=up[fcr_col].apply(lambda x:-np.log10(x)), s=10, label="Up-regulated", color="red")
-
-
-    # add texts
-    texts=[]
-    for _,r in up.iterrows():
-        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
-
-    for _,r in down.iterrows():
-        texts.append(ax.text(x=r[fc_col],y=-np.log10(r[fcr_col]),s=r[compounds_col], fontsize=8))
-
-    adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", color='black', lw=0.5),
-                expand_points=(1.2,1.2),
-                expand_text=(1.2,1.2),
-                force_points=0.5,
-                force_text=0.5,
-                lim=100)
-
-    ax.set_title(f"{title}")
-    ax.set_xlabel("logFC")
-    ax.set_ylabel("-logFDR")
-    ax.axvline(fc_level*-1, color="grey", linestyle="--")
-    ax.axvline(fc_level, color="grey", linestyle="--")
-    ax.axhline(-np.log10(significance), color="grey", linestyle="--")
-    ax.legend(bbox_to_anchor=(0.5, -0.15), ncol=3, loc="upper center")
-
-    return fig, ax
-
-def format_compound_names(name):
-    name = str(name)
-    name = name.replace("(", "_").replace(")", "").replace("/", "_")
-    return name
-
-def format_dataframe(data_name, save=False):
-    df_org = pd.read_excel(f"../data/unformated/{data_name}.xlsx", sheet_name="formatted")
-    rows_unl = [i for i in range(len(df_org)) if i % 2 == 0]
-    rows_l = [i for i in range(len(df_org)) if i % 2 != 0]
-    df = df_org.drop(rows_l, axis=0)
-    df_l = df_org.drop(rows_unl, axis=0)
-
-    # add labeled values as new columns
-    cols = df_org.columns[1:]
-    for col in cols:
-        df[f"{col}_l"] = df_l[col].values
-
-    # format compound name
-    df["compound"] = df["compound"].apply(format_compound_names)
-
-    # save
-    if save == True:
-        df.to_csv(f"../data/formated/{data_name}.csv", index=False)
-
-    return df
-
 def ttest_for_df(df, cols1, cols2, label):
     vals1 = df[cols1]
     vals2 = df[cols2]
@@ -194,7 +198,7 @@ def ttest_for_df(df, cols1, cols2, label):
 
     return df
 
-
+## Batch correction functions
 def batch_correction(df):
     df_t = df.filter(regex="sum").T
     df_t.columns = df["compound"].values
@@ -267,3 +271,56 @@ def categorize_compounds(df, sign_lvl_cond=0.05, sign_lvl_batch=0.05, effect_siz
             categories.append("neutral")
     
     return categories
+
+## Add features functions
+def extract_class(compound_name):    
+    cls = compound_name.split("_")[0]
+
+    if cls == "Cer":
+        return "Ceramide"
+    elif cls == "hCer":
+        return "Hydroxy_ceramide"
+    elif cls == "GlcCer" or cls == "GlcCER":
+        return "Glycosyl_ceramide"
+    elif cls == "GIPC":
+        return "GIPC"
+    else:
+        return ("no class")
+    
+def extract_chain_length(compound_name):
+    match = re.search(r'(?:h)?(\d+):', compound_name.split("_")[-1])
+
+    if match:
+        return int(match.group(1))
+    else:
+        return None
+    
+def categorize_chain_length(length):
+    if length is None:
+        return None
+    elif length <= 16:
+        return "short"
+    # elif 20 <= length <= 22:
+    #     return "long"
+    elif length >= 18:
+        return "very_long"
+    
+def extract_sphingo_hydroxylation(compound_name):
+    hydroxy = compound_name.split("_")[1][0]
+
+    if hydroxy == "d":
+        return 2
+    elif hydroxy == "t":
+        return 3
+    
+def extract_fatty_hydroxylation(compound_name):
+    hydroxy = compound_name.split("_")[-1][0]
+
+    if hydroxy == "h":
+        return True
+    else:
+        return False
+
+def extract_double_bounds(compound_name):
+    dbs = compound_name.split("_")[-1].split(":")[-1]
+    return int(dbs)
